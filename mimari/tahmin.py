@@ -12,16 +12,39 @@ Ornek:
 import argparse
 from pathlib import Path
 
+import nibabel as nib
 import numpy as np
 import torch
+from scipy import ndimage
 
 from cozucu import Model
 from kodlayici import SahteKodlayici, VJepaKodlayici, VARSAYILAN_MODEL
 from veri import _yukle, pencerele, slab_bol
 
 
+def son_isleme(maske: np.ndarray, aralik, en_kucuk_cm3: float = 0.05) -> np.ndarray:
+    """Klasik iki son-isleme adimi:
+      1. Karaciger disindaki tumor tahminleri elenir (anatomik olarak imkansiz).
+      2. Cok kucuk kopuk bilesenler atilir -> yanlis pozitif azalir.
+    En buyuk karaciger bileseni disindaki karaciger parcalari da temizlenir."""
+    kc = maske >= 1
+    if kc.any():
+        lab, n = ndimage.label(kc)
+        if n > 1:
+            en_buyuk = int(np.argmax(np.bincount(lab.ravel())[1:])) + 1
+            maske[(lab != en_buyuk) & kc] = 0
+    tumor = maske == 2
+    if tumor.any():
+        voksel_cm3 = float(np.prod(aralik)) / 1000.0
+        lab, n = ndimage.label(tumor, structure=np.ones((3, 3, 3)))
+        boyutlar = np.bincount(lab.ravel())
+        for i in range(1, n + 1):
+            if boyutlar[i] * voksel_cm3 < en_kucuk_cm3:
+                maske[lab == i] = 1                  # karacigere geri ver
+    return maske
+
+
 def kaydet(maske: np.ndarray, kaynak: Path, hedef: Path):
-    import nibabel as nib
     if kaynak.suffix == ".npz":
         d = np.load(kaynak)
         affine = d["affine"] if "affine" in d else np.diag(list(d["aralik"]) + [1.0])
@@ -83,6 +106,9 @@ def main():
     p.add_argument("--coz-son-blok", type=int, default=0)
     p.add_argument("--slab", type=int, default=16)
     p.add_argument("--boyut", type=int, default=256)
+    p.add_argument("--son-isleme", action="store_true",
+                   help="karaciger disi tumorleri ve cok kucuk bilesenleri ele")
+    p.add_argument("--en-kucuk-cm3", type=float, default=0.05)
     a = p.parse_args()
 
     cihaz = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -102,6 +128,10 @@ def main():
     vakalar = sorted(list(Path(a.vakalar).glob("*.npz")) + list(Path(a.vakalar).glob("*_0000.nii.gz")))
     for n, yol in enumerate(vakalar, 1):
         maske = vakayi_tahmin_et(model, yol, cihaz, a.slab, a.boyut)
+        if a.son_isleme:
+            aralik = (np.load(yol)["aralik"] if yol.suffix == ".npz"
+                      else np.linalg.norm(nib.load(yol).affine[:3, :3], axis=0))
+            maske = son_isleme(maske, aralik, a.en_kucuk_cm3)
         ad = yol.name.replace("_0000.nii.gz", ".nii.gz").replace(".npz", ".nii.gz")
         kaydet(maske, yol, cikti / ad)
         print(f"  {n}/{len(vakalar)} {ad}", flush=True)
