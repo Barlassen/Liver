@@ -1,0 +1,85 @@
+#!/usr/bin/env python3
+"""V-JEPA 2 kodlayici sarmalayicisi (dondurulmus).
+
+V-JEPA 2 videoyla egitildi: (B, T, 3, H, W). Biz eksenel CT dilimlerini kare
+gibi veriyoruz. Cikti token dizisi (B, N, C) olup N = (T/tubelet) * (H/p) * (W/p);
+bunu (B, C, t, h, w) bicimine geri katliyoruz ki cozucu 3B evrisim uygulayabilsin.
+
+Kodlayici DONDURULMUS: gradyan yok, egitilen tek sey cozucu. Boylece 16 GB'lik
+bir Kaggle GPU'suna sigar ve ozellikler bir kez hesaplanip onbelleklenebilir.
+"""
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+VARSAYILAN_MODEL = "facebook/vjepa2-vitl-fpc64-256"
+ORT, STD = 0.485, 0.229  # tek kanala indirgenmis ImageNet istatistigi
+
+
+class VJepaKodlayici(nn.Module):
+    def __init__(self, model_adi: str = VARSAYILAN_MODEL, dondur: bool = True):
+        super().__init__()
+        from transformers import AutoModel  # ice aktarim burada: torch'suz ortamda import edilebilsin
+        self.govde = AutoModel.from_pretrained(model_adi)
+        cfg = self.govde.config
+        self.yama = getattr(cfg, "patch_size", 16)
+        self.tubelet = getattr(cfg, "tubelet_size", 2)
+        self.boyut = getattr(cfg, "hidden_size", 1024)
+        self.dondu = dondur
+        if dondur:
+            for p in self.govde.parameters():
+                p.requires_grad_(False)
+            self.govde.eval()
+
+    def train(self, mod: bool = True):
+        super().train(mod)
+        if self.dondu:
+            self.govde.eval()   # dondurulmus govde her zaman eval modunda kalir
+        return self
+
+    @property
+    def cikti_boyutu(self) -> int:
+        return self.boyut
+
+    def _hazirla(self, x: torch.Tensor) -> torch.Tensor:
+        """(B, K, D, H, W) -> (B, D, 3, H, W), normalize edilmis."""
+        if x.shape[1] == 1:
+            kanallar = [x[:, 0]] * 3
+        else:  # (karaciger penceresi, karaciger penceresi, genis pencere)
+            kanallar = [x[:, 0], x[:, 0], x[:, 1]]
+        v = torch.stack(kanallar, dim=2)          # (B, D, 3, H, W)
+        return (v - ORT) / STD
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """(B, K, D, H, W) -> (B, C, t, h, w)"""
+        B, _, D, H, W = x.shape
+        v = self._hazirla(x)
+        baglam = torch.no_grad() if self.dondu else torch.enable_grad()
+        with baglam:
+            cikti = self.govde(pixel_values_videos=v)
+        tokenler = cikti.last_hidden_state              # (B, N, C)
+        t, h, w = D // self.tubelet, H // self.yama, W // self.yama
+        beklenen = t * h * w
+        if tokenler.shape[1] != beklenen:
+            raise RuntimeError(
+                f"token sayisi {tokenler.shape[1]}, beklenen {beklenen} "
+                f"(D={D}, H={H}, W={W}, tubelet={self.tubelet}, yama={self.yama}). "
+                "Girdi boyutlarini modelin bekledigi degerlere ayarlayin.")
+        return tokenler.transpose(1, 2).reshape(B, self.boyut, t, h, w)
+
+
+class SahteKodlayici(nn.Module):
+    """Agirlik indirmeden boru hattini test etmek icin: ayni bicimde cikti uretir."""
+
+    def __init__(self, boyut=256, yama=16, tubelet=2):
+        super().__init__()
+        self.boyut, self.yama, self.tubelet = boyut, yama, tubelet
+        self.govde = nn.Conv3d(2, boyut, kernel_size=(tubelet, yama, yama),
+                               stride=(tubelet, yama, yama))
+
+    @property
+    def cikti_boyutu(self):
+        return self.boyut
+
+    def forward(self, x):
+        return F.gelu(self.govde(x))

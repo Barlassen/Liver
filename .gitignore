@@ -1,0 +1,16 @@
+# Veri (buyuk) — depoya girmez
+ham/
+nnUNet_raw/
+nnUNet_preprocessed/
+nnUNet_results/
+kaggle/
+*.tar.gz
+*.nii.gz
+*.npz
+veri/AbdomenAtlas3.0MiniWithMeta.csv
+
+# Python
+__pycache__/
+*.pyc
+venv/
+.DS_Store
