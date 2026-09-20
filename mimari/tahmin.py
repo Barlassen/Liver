@@ -32,6 +32,18 @@ def kaydet(maske: np.ndarray, kaynak: Path, hedef: Path):
     nib.save(im, hedef)
 
 
+def _doldur_kirp(x: np.ndarray, b: int):
+    """Egitimdekiyle AYNI islem: merkezden kirp, sonra sifirla doldur.
+    Cikarimda olcekleme yapilirsa anatomi yanlis buyuklukte gorunur ve model coker."""
+    K, d, H, W = x.shape
+    h0, w0 = max(0, (H - b) // 2), max(0, (W - b) // 2)
+    kirpik = x[..., h0:h0 + b, w0:w0 + b]
+    hk, wk = kirpik.shape[-2], kirpik.shape[-1]
+    dolu = np.zeros((K, d, b, b), dtype=x.dtype)
+    dolu[..., :hk, :wk] = kirpik
+    return dolu, (h0, w0, hk, wk)
+
+
 @torch.no_grad()
 def vakayi_tahmin_et(model, yol: Path, cihaz, slab=16, boyut=256, sinif=3):
     hu, _, _ = _yukle(yol)
@@ -44,18 +56,16 @@ def vakayi_tahmin_et(model, yol: Path, cihaz, slab=16, boyut=256, sinif=3):
         d = parca.shape[0]
         if d < slab:
             parca = np.pad(parca, ((0, slab - d), (0, 0), (0, 0)), mode="edge")
-        x = torch.from_numpy(pencerele(np.moveaxis(parca, 0, -1)))  # (K, d, H, W)
-        x = x.unsqueeze(0).to(cihaz)
+        ham = pencerele(parca)                                      # (K, d, H, W)
+        dolu, (h0, w0, hk, wk) = _doldur_kirp(ham, boyut)
+        x = torch.from_numpy(dolu).unsqueeze(0).to(cihaz)
 
-        # H, W kodlayicinin bekledigi boyuta getirilir, sonra geri buyutulur.
-        kucuk = torch.nn.functional.interpolate(
-            x, size=(slab, boyut, boyut), mode="trilinear", align_corners=False)
         with torch.autocast(cihaz.type, dtype=torch.float16, enabled=cihaz.type == "cuda"):
-            logit = model(kucuk)
-        logit = torch.nn.functional.interpolate(
-            logit.float(), size=(slab, H, W), mode="trilinear", align_corners=False)[0]
+            logit = model(x)
+        logit = logit.float()[0]                                     # (sinif, slab, b, b)
 
-        toplam[:, z0:z0 + d] += logit[:, :d].cpu().numpy()
+        # Doldurmayi geri al: yalnizca gercek anatomiye denk gelen bolge yazilir.
+        toplam[:, z0:z0 + d, h0:h0 + hk, w0:w0 + wk] += logit[:, :d, :hk, :wk].cpu().numpy()
         sayac[z0:z0 + d] += 1
 
     toplam /= np.maximum(sayac, 1)[None, :, None, None]
