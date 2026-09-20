@@ -31,6 +31,12 @@ ORTUSME_ESIGI = 0.1                    # gercek lezyonun en az %10'u ortusurse "
 HASTA_ESIGI_CM3 = 0.1                  # bu hacmin uzerinde tumor -> hasta pozitif
 
 
+def voksel_araligi(affine) -> np.ndarray:
+    """Voksel araligi (mm). np.diag yerine sutun normu kullanilir: oblik
+    (dondurulmus) affine'lerde kosegen sifir olabilir ve hesaplari bozar."""
+    return np.linalg.norm(np.asarray(affine)[:3, :3], axis=0)
+
+
 def etiket_yukle(yol: Path):
     """Etiket hacmini ve voksel araligini dondurur. .nii.gz ve .npz destekli."""
     if yol.suffix == ".npz":
@@ -38,7 +44,7 @@ def etiket_yukle(yol: Path):
         return d["etiket"].astype(np.uint8), tuple(float(x) for x in d["aralik"])
     im = nib.load(yol)
     return (np.asanyarray(im.dataobj).astype(np.uint8),
-            tuple(np.abs(np.diag(im.affine)[:3]).tolist()))
+            tuple(voksel_araligi(im.affine).tolist()))
 
 
 def dice(a: np.ndarray, b: np.ndarray) -> float:

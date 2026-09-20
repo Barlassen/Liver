@@ -28,6 +28,12 @@ VERI_SETI = "Dataset001_LiverTumor"
 KENAR_MM = 20.0      # karaciger sinirinin disinda birakilacak pay
 
 
+def voksel_araligi(affine) -> np.ndarray:
+    """Voksel araligi (mm). np.diag yerine sutun normu kullanilir: oblik
+    (dondurulmus) affine'lerde kosegen sifir olabilir ve hesaplari bozar."""
+    return np.linalg.norm(np.asarray(affine)[:3, :3], axis=0)
+
+
 def vakayi_hazirla(args):
     vid, bolum, raw, cikti, hedef_aralik, kirp = args
     kok = Path(raw) / VERI_SETI
@@ -38,7 +44,9 @@ def vakayi_hazirla(args):
         ct_im = nib.load(ct_p)
         ct = np.asanyarray(ct_im.dataobj).astype(np.float32)
         et = np.asanyarray(nib.load(et_p).dataobj).astype(np.uint8)
-        aralik = np.abs(np.diag(ct_im.affine)[:3]).astype(np.float32)
+        aralik = voksel_araligi(ct_im.affine).astype(np.float32)
+        if not np.all(aralik > 0):
+            raise ValueError(f"gecersiz voksel araligi: {aralik}")
 
         if kirp and (et >= 1).any():
             koord = np.argwhere(et >= 1)
@@ -51,6 +59,8 @@ def vakayi_hazirla(args):
         if not np.allclose(olcek, 1.0, atol=0.02):
             ct = ndimage.zoom(ct, olcek, order=1)                      # dogrusal
             et = ndimage.zoom(et, olcek, order=0).astype(np.uint8)     # en yakin komsu
+        if min(ct.shape) < 8:
+            raise ValueError(f"kirpma sonrasi hacim cok kucuk: {ct.shape}")
         ct = np.clip(ct, -1024, 3071).astype(np.int16)
 
         affine = np.eye(4, dtype=np.float32)

@@ -31,7 +31,7 @@ def _yukle(yol: Path):
     import nibabel as nib
     ct_im = nib.load(yol)
     etiket_p = Path(str(yol).replace("images", "labels").replace("_0000.nii.gz", ".nii.gz"))
-    aralik = tuple(np.abs(np.diag(ct_im.affine)[:3]).tolist())
+    aralik = tuple(np.linalg.norm(ct_im.affine[:3, :3], axis=0).tolist())
     return (np.asanyarray(ct_im.dataobj).astype(np.float32),
             np.asanyarray(nib.load(etiket_p).dataobj).astype(np.int64), aralik)
 

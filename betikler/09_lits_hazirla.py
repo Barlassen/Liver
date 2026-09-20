@@ -65,13 +65,21 @@ def arsivi_ac(tar_yolu: Path, klasor: Path):
             t.extract(m, klasor)
 
 
+def voksel_araligi(affine) -> np.ndarray:
+    """Voksel araligi (mm). np.diag yerine sutun normu kullanilir: oblik
+    (dondurulmus) affine'lerde kosegen sifir olabilir ve hesaplari bozar."""
+    return np.linalg.norm(np.asarray(affine)[:3, :3], axis=0)
+
+
 def vakayi_hazirla(args):
     ad, ct_p, et_p, cikti, bicim, hedef_aralik, kirp = args
     try:
         ct_im = nib.load(ct_p)
         ct = np.asanyarray(ct_im.dataobj).astype(np.float32)
         et = np.asanyarray(nib.load(et_p).dataobj).astype(np.uint8)
-        aralik = np.abs(np.diag(ct_im.affine)[:3]).astype(np.float32)
+        aralik = voksel_araligi(ct_im.affine).astype(np.float32)
+        if not np.all(aralik > 0):
+            raise ValueError(f"gecersiz voksel araligi: {aralik}")
 
         degerler = set(np.unique(et).tolist())
         if not degerler <= {0, 1, 2}:

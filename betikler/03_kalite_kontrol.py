@@ -30,6 +30,12 @@ VERI_SETI = "Dataset001_LiverTumor"
 KUCUK = 16  # kopya tespiti icin kucultulmus hacim kenar uzunlugu
 
 
+def voksel_araligi(affine) -> np.ndarray:
+    """Voksel araligi (mm). np.diag yerine sutun normu kullanilir: oblik
+    (dondurulmus) affine'lerde kosegen sifir olabilir ve hesaplari bozar."""
+    return np.linalg.norm(np.asarray(affine)[:3, :3], axis=0)
+
+
 def kucult(hacim: np.ndarray, k: int = KUCUK) -> np.ndarray:
     """Hacmi k x k x k boyutuna indirger (kopya karsilastirmasi icin parmak izi)."""
     adim = [max(1, s // k) for s in hacim.shape]
@@ -49,7 +55,7 @@ def vakayi_incele(args):
         et_im = nib.load(etiket_p)
         et = np.asanyarray(et_im.dataobj)
         voksel_cm3 = abs(np.linalg.det(et_im.affine[:3, :3])) / 1000.0
-        aralik = np.abs(np.diag(et_im.affine)[:3])
+        aralik = voksel_araligi(et_im.affine)
 
         degerler = set(np.unique(et).tolist())
         if not degerler <= {0, 1, 2}:
