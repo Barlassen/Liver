@@ -14,9 +14,9 @@ cd ~/kod
 
 KOL=$1; shift
 EK=("$@")                      # modele ozel bayraklar (--coz-son-blok 4, --rastgele-kodlayici)
-CIKTI=~/Liver/cikti/$KOL
-VERI=~/veri/veri15
-LITS=~/veri/harici_lits15
+CIKTI=${CIKTI_KOK:-~/Liver/cikti}/$KOL
+VERI=${VERI:-~/veri/veri15}          # buyuk veri icin: VERI=~/veri/veri22
+LITS=${LITS:-~/veri/harici_lits15}
 
 olc_bir () {                   # $1=checkpoint adi  $2=veri klasoru  $3=etiket -> tumor Dice yazar
   local ck=$1 yol=$2 etiket=$3
