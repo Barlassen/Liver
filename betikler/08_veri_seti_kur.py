@@ -51,6 +51,10 @@ def main():
                    help="ic testte hedeflenen tumorlu vaka sayisi; IID listesi yetmezse havuzdan tamamlanir")
     p.add_argument("--rsna-harici", action="store_true",
                    help="RSNA blokundan ikinci bir harici test seti de tanimla")
+    p.add_argument("--onceki", default=None,
+                   help="onceki manifest (karaciger_vakalar.csv). Oradaki egitim vakalari "
+                        "yeni bolunmede de egitimde, test vakalari testte kalir; boylece "
+                        "iki veri boyutu ayni test setinde adil karsilastirilabilir")
     p.add_argument("--tohum", type=int, default=0)
     a = p.parse_args()
 
@@ -68,6 +72,16 @@ def main():
 
     ic_test_ids = set(pd.read_csv(Path(a.ids) / "IID_test.csv")["BDMAP ID"])
     m["iid_test"] = m.bdmap_id.isin(ic_test_ids)
+
+    # Onceki bolunmeye sadakat: eski egitim vakasi yeni testte yer alamaz (ve tersi).
+    onceki_egitim, onceki_test = set(), set()
+    if a.onceki:
+        o = pd.read_csv(a.onceki)
+        onceki_egitim = set(o[o.split == "train"]["BDMAP ID"])
+        onceki_test = set(o[o.split == "test"]["BDMAP ID"])
+        m.loc[m.bdmap_id.isin(onceki_egitim), "iid_test"] = False
+        m.loc[m.bdmap_id.isin(onceki_test), "iid_test"] = True
+        print(f"onceki manifest: {len(onceki_egitim)} egitim, {len(onceki_test)} test vakasi sabitlendi")
 
     # --- uygun havuz --------------------------------------------------------
     havuz = m[~m.lits_kokenli & ~m.rsna].copy()
@@ -88,8 +102,10 @@ def main():
     # IID listesi kucuk kalirsa havuzdan tamamla (yine hasta duzeyinde, ayrik).
     eksik_tumor = max(0, a.ic_test_tumor - int(ic_test.tumor.sum()))
     if eksik_tumor:
-        ek_t = kalan[kalan.tumor].head(eksik_tumor)
-        ek_s = kalan[~kalan.tumor].head(int(eksik_tumor * a.tumorsuz_orani))
+        # Onceki egitim vakalari teste alinamaz
+        aday = kalan[~kalan.bdmap_id.isin(onceki_egitim)]
+        ek_t = aday[aday.tumor].head(eksik_tumor)
+        ek_s = aday[~aday.tumor].head(int(eksik_tumor * a.tumorsuz_orani))
         ic_test = pd.concat([ic_test, ek_t, ek_s])
         kalan = kalan[~kalan.bdmap_id.isin(ic_test.bdmap_id)]
     egitim_havuzu = kalan
