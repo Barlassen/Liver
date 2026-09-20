@@ -71,6 +71,8 @@ def main():
     p.add_argument("--lr", type=float, default=3e-4)
     p.add_argument("--sure-siniri", type=float, default=8.0, help="saat; dolunca checkpoint yazip cikar")
     p.add_argument("--isci", type=int, default=2)
+    p.add_argument("--dogrulama-ornegi", type=int, default=200,
+                   help="dogrulamada kac slab ornegi; az olursa checkpoint secimi gurultulu olur")
     a = p.parse_args()
 
     baslangic = time.time()
@@ -89,7 +91,8 @@ def main():
     egitim = SlabVeriSeti(vakalari_bul(a.egitim), a.slab, a.boyut,
                           ornek_sayisi=a.adim * a.batch, artir=True)
     dogrulama = SlabVeriSeti(vakalari_bul(a.dogrulama), a.slab, a.boyut,
-                             ornek_sayisi=40, artir=False, tumor_orani=0.5, tohum=1)
+                             ornek_sayisi=a.dogrulama_ornegi, artir=False,
+                             tumor_orani=0.5, tohum=1)
     yk_e = DataLoader(egitim, batch_size=a.batch, num_workers=a.isci, pin_memory=True, drop_last=True)
     yk_d = DataLoader(dogrulama, batch_size=a.batch, num_workers=a.isci)
 
