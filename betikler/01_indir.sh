@@ -6,8 +6,15 @@
 # esit dagilmis; ID 5196 ve sonrasi RSNA Trauma verisi, tumor neredeyse yok.
 set -euo pipefail
 
+#   bash 01_indir.sh /mnt/veri "5 6 7 8 18 20"   -> yalnizca bu parcalar
+#   (parca numaralari veri_seti/indirme_plani.csv dosyasinda)
 KOK="${1:-/mnt/veri}"
-PARCA_SAYISI="${2:-12}"
+IKINCI="${2:-12}"
+if [[ "$IKINCI" =~ ^[0-9]+$ ]]; then
+  PARCALAR=$(seq 0 $((IKINCI - 1)))
+else
+  PARCALAR="$IKINCI"
+fi
 REPO="AbdomenAtlas/AbdomenAtlas3.0Mini"
 HAM="$KOK/ham"
 mkdir -p "$HAM"
@@ -26,7 +33,7 @@ echo "== Metadata ve ayrim listeleri"
 huggingface-cli download "$REPO" --repo-type dataset --local-dir "$HAM" \
   --include "AbdomenAtlas3.0MiniWithMeta.csv" "TrainTestIDS/*"
 
-for ((k=0; k<PARCA_SAYISI; k++)); do
+for k in $PARCALAR; do
   for tur in masks images; do
     ad=$(dosya_adi "$k" "$tur")
     klasor="$HAM/$tur"

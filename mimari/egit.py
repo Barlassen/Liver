@@ -59,6 +59,8 @@ def main():
     p.add_argument("--cikti", required=True)
     p.add_argument("--model-adi", default=VARSAYILAN_MODEL)
     p.add_argument("--sahte-kodlayici", action="store_true", help="agirlik indirmeden boru hatti testi")
+    p.add_argument("--rastgele-kodlayici", action="store_true",
+                   help="ablasyon: ayni mimari, V-JEPA on egitimi olmadan")
     p.add_argument("--slab", type=int, default=16)
     p.add_argument("--boyut", type=int, default=256)
     p.add_argument("--batch", type=int, default=2)
@@ -74,7 +76,8 @@ def main():
     cikti = Path(a.cikti)
     cikti.mkdir(parents=True, exist_ok=True)
 
-    kodlayici = SahteKodlayici() if a.sahte_kodlayici else VJepaKodlayici(a.model_adi)
+    kodlayici = (SahteKodlayici() if a.sahte_kodlayici
+                 else VJepaKodlayici(a.model_adi, rastgele=a.rastgele_kodlayici))
     model = Model(kodlayici).to(cihaz)
     egitilen = [p_ for p_ in model.parameters() if p_.requires_grad]
     print(f"Egitilen parametre: {sum(p_.numel() for p_ in egitilen)/1e6:.1f} M / "

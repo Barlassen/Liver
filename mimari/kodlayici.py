@@ -17,10 +17,18 @@ ORT, STD = 0.485, 0.229  # tek kanala indirgenmis ImageNet istatistigi
 
 
 class VJepaKodlayici(nn.Module):
-    def __init__(self, model_adi: str = VARSAYILAN_MODEL, dondur: bool = True):
+    """dondur=True: V-JEPA 2 agirliklari donduruldu, yalnizca cozucu egitilir.
+    rastgele=True: ayni mimari, ON EGITILMIS AGIRLIK YOK -> ablasyon kolu.
+    Ikisinin farki "V-JEPA on egitimi ne kazandiriyor" sorusunun cevabidir."""
+
+    def __init__(self, model_adi: str = VARSAYILAN_MODEL, dondur: bool = True,
+                 rastgele: bool = False):
         super().__init__()
-        from transformers import AutoModel  # ice aktarim burada: torch'suz ortamda import edilebilsin
-        self.govde = AutoModel.from_pretrained(model_adi)
+        from transformers import AutoConfig, AutoModel  # torch'suz ortamda import edilebilsin
+        if rastgele:
+            self.govde = AutoModel.from_config(AutoConfig.from_pretrained(model_adi))
+        else:
+            self.govde = AutoModel.from_pretrained(model_adi)
         cfg = self.govde.config
         self.yama = getattr(cfg, "patch_size", 16)
         self.tubelet = getattr(cfg, "tubelet_size", 2)
