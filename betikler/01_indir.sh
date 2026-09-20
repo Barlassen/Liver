@@ -32,7 +32,9 @@ dosya_adi() {  # $1 = parca indeksi (0 tabanli), $2 = images|masks
 echo "== Metadata ve ayrim listeleri"
 HF=$(command -v hf || command -v huggingface-cli)   # huggingface-cli 1.x ile "hf" oldu
 "$HF" download "$REPO" --repo-type dataset --local-dir "$HAM" \
-  --include "AbdomenAtlas3.0MiniWithMeta.csv" "TrainTestIDS/*"
+  AbdomenAtlas3.0MiniWithMeta.csv \
+  TrainTestIDS/IID_train.csv TrainTestIDS/IID_test.csv \
+  TrainTestIDS/OOD_train.csv TrainTestIDS/OOD_test.csv
 
 for k in $PARCALAR; do
   for tur in masks images; do
@@ -45,8 +47,7 @@ for k in $PARCALAR; do
     fi
     if [ "$tur" = masks ]; then dizin=mask_only; else dizin=image_only; fi
     echo "== Indiriliyor: $dizin/$ad"
-    "$HF" download "$REPO" --repo-type dataset --local-dir "$HAM" \
-      --include "$dizin/$ad"
+    "$HF" download "$REPO" --repo-type dataset --local-dir "$HAM" "$dizin/$ad"
 
     kaynak="$HAM/$dizin/$ad"
     echo "== Aciliyor: $ad"
