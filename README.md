@@ -69,14 +69,23 @@ python betikler/03_kalite_kontrol.py --raw /mnt/veri/nnUNet_raw \
        --meta veri/AbdomenAtlas3.0MiniWithMeta.csv
 ```
 
-### 3. Kaggle için küçült (~10 GB)
+### 3. Harici test setini hazırla (LiTS, ~27 GB indirme)
+
+```bash
+python betikler/09_lits_hazirla.py --cikti /mnt/veri/harici_lits --format npz
+```
+
+LiTS etiket düzeni bizimkiyle birebir aynı (`1 = karaciğer`, `2 = tümör`), dönüştürme
+gerekmiyor. Çıktı `LITS_0000.npz` biçiminde, eğitim verisiyle aynı formatta.
+
+### 4. Kaggle için küçült (~10 GB)
 
 ```bash
 python betikler/06_kaggle_hazirla.py --raw /mnt/veri/nnUNet_raw --cikti /mnt/veri/kaggle \
        --envanter /mnt/veri/nnUNet_raw/Dataset001_LiverTumor/envanter.csv
 ```
 
-### 4. Eğit
+### 5. Eğit
 
 ```bash
 bash betikler/05_egit.sh /mnt/veri                     # nnU-Net baseline
@@ -84,7 +93,7 @@ python mimari/egit.py --egitim .../train --dogrulama .../val \
        --cikti .../vjepa --epoch 40 --sure-siniri 8.0  # V-JEPA 2 + çözücü
 ```
 
-### 5. Değerlendir
+### 6. Değerlendir
 
 ```bash
 python betikler/04_degerlendir.py --gt .../labelsTs --tahmin .../tahmin --cikti .../metrik
