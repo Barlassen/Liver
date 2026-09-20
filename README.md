@@ -43,8 +43,10 @@ Sayılar `--parca-sayisi 6` içindir ve `veri_seti/OZET.md` dosyasında tutulur.
   MSD Task03 girişi olarak, farklı BDMAP ID'leriyle. 97 çift adayın 92'sinde iki kaydın
   karaciğer hacmi %2'den az farklı. Bu, veri setinin kendi içinde eğitim/test sızıntısı
   riski taşıdığı anlamına gelir; her iki kopya da dışlandı.
-- **Maskeler CT ile aynı ızgarada olmayabiliyor** (kırpılmış maske + affine kaydırması).
-  Dönüştürme betiği bunu düzeltiyor.
+- **CT ile maske aynı ızgarada geliyor.** Dönüştürülen 918 vakanın tamamı birebir eşleşti.
+  Metadata'daki `shape` sütunu kırpma öncesi orijinal boyutu gösterdiği için başta uyumsuzluk
+  sanılmıştı; gerçekte dosyalar tutarlı. Dönüştürme betiği yine de affine farkını ele alıyor:
+  voksel aralığı veya yönelimi uyuşmayan 7 vaka hata olarak işaretlenip dışlandı.
 
 ---
 

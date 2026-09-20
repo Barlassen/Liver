@@ -91,9 +91,15 @@ BDMAP_XXXXXXXX/segmentations/liver_lesion.nii.gz  (ikili, int8, 0/1)
 + 40 kadar başka organ, damar ve karaciğer alt segment maskesi
 ```
 
-**Kritik bulgu: maske hacmi CT ile aynı ızgarada olmayabiliyor.** Örnek: `BDMAP_00000001` için CT `(512, 512, 339)` iken maske `(511, 404, 339)`. Maske kırpılmış, farkı affine'in kaydırma kısmı taşıyor. nnU-Net görüntü ve etiketin birebir aynı boyutta olmasını şart koşar, bu yüzden dönüştürme betiği maskeyi affine'e bakarak CT ızgarasına geri oturtuyor. Voksel aralığı veya yönelim farklıysa vaka dönüştürülmüyor, raporda hata olarak işaretleniyor.
+**Izgara durumu (20 Eylül'de doğrulandı):** CT ve maske aynı ızgarada geliyor. İndirilen 6
+parçadaki 918 vakanın tamamı birebir eşleşti. Metadata'daki `shape` sütunu kırpma öncesi
+orijinal boyutu gösteriyor, bu yüzden başta uyumsuzluk sanılmıştı. Dönüştürme betiği yine de
+affine farkını ele alacak şekilde yazıldı; voksel aralığı/yönelimi uyuşmayan 7 vaka hata
+olarak işaretlenip dışlandı.
 
-**Doğrulama:** `BDMAP_00000001` için maskeden hesaplanan karaciğer hacmi 1300,8 cm³, metadata'da yazan 1291,3 cm³ (%0,7 fark). Lezyon sayısı 27'ye karşı 25, en büyük çap 3,37 cm'e karşı 3,1 cm. Küçük farklar bağlantılılık (connectivity) tanımından geliyor, beklenen düzeyde.
+**Doğrulama:** `BDMAP_00000001` için maskeden hesaplanan karaciğer hacmi 1300,8 cm³,
+metadata'da yazan 1291,3 cm³ (%0,7 fark). Lezyon sayısı 27'ye karşı 25. Küçük farklar
+bağlantılılık tanımından geliyor.
 
 ### 3.5 Diğer veri setleri
 
