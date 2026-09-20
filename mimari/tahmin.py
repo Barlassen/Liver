@@ -70,6 +70,7 @@ def main():
     p.add_argument("--model-adi", default=VARSAYILAN_MODEL)
     p.add_argument("--sahte-kodlayici", action="store_true")
     p.add_argument("--rastgele-kodlayici", action="store_true")
+    p.add_argument("--coz-son-blok", type=int, default=0)
     p.add_argument("--slab", type=int, default=16)
     p.add_argument("--boyut", type=int, default=256)
     a = p.parse_args()
@@ -79,10 +80,13 @@ def main():
     cikti.mkdir(parents=True, exist_ok=True)
 
     kodlayici = (SahteKodlayici() if a.sahte_kodlayici
-                 else VJepaKodlayici(a.model_adi, rastgele=a.rastgele_kodlayici))
+                 else VJepaKodlayici(a.model_adi, rastgele=a.rastgele_kodlayici,
+                                     coz_son_blok=a.coz_son_blok))
     model = Model(kodlayici).to(cihaz).eval()
     durum = torch.load(a.checkpoint, map_location=cihaz, weights_only=False)
     model.cozucu.load_state_dict(durum["cozucu"])
+    if durum.get("kodlayici"):
+        model.kodlayici.load_state_dict(durum["kodlayici"])
     print(f"Checkpoint yuklendi (epoch {durum['epoch']}, en iyi tumor Dice {durum['en_iyi']:.3f})")
 
     vakalar = sorted(list(Path(a.vakalar).glob("*.npz")) + list(Path(a.vakalar).glob("*_0000.nii.gz")))

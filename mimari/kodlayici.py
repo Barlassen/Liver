@@ -22,7 +22,7 @@ class VJepaKodlayici(nn.Module):
     Ikisinin farki "V-JEPA on egitimi ne kazandiriyor" sorusunun cevabidir."""
 
     def __init__(self, model_adi: str = VARSAYILAN_MODEL, dondur: bool = True,
-                 rastgele: bool = False):
+                 rastgele: bool = False, coz_son_blok: int = 0):
         super().__init__()
         from transformers import AutoConfig, AutoModel  # torch'suz ortamda import edilebilsin
         if rastgele:
@@ -38,6 +38,32 @@ class VJepaKodlayici(nn.Module):
             for p in self.govde.parameters():
                 p.requires_grad_(False)
             self.govde.eval()
+        self.cozulen = self._son_bloklari_coz(coz_son_blok) if (dondur and coz_son_blok) else []
+        if self.cozulen:
+            self.dondu = False        # govde artik kismen egitiliyor
+            print(f"kodlayicinin son {coz_son_blok} blogu cozuldu "
+                  f"({sum(p.numel() for p in self.cozulen)/1e6:.1f} M parametre)")
+
+    def _son_bloklari_coz(self, n: int):
+        """Transformer bloklarinin son n tanesini egitilebilir yapar (ince ayar kolu).
+        Blok indeksleri parametre adlarindan cikarilir; mimariye ozel isim varsaymaz."""
+        import re
+        indeksler = set()
+        for ad, _ in self.govde.named_parameters():
+            m = re.search(r"(?:layers?|blocks?)\.(\d+)\.", ad)
+            if m:
+                indeksler.add(int(m.group(1)))
+        if not indeksler:
+            print("UYARI: transformer bloklari bulunamadi, kodlayici tamamen dondu")
+            return []
+        esik = max(indeksler) - n + 1
+        cozulen = []
+        for ad, p in self.govde.named_parameters():
+            m = re.search(r"(?:layers?|blocks?)\.(\d+)\.", ad)
+            if m and int(m.group(1)) >= esik:
+                p.requires_grad_(True)
+                cozulen.append(p)
+        return cozulen
 
     def train(self, mod: bool = True):
         super().train(mod)

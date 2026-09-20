@@ -61,6 +61,8 @@ def main():
     p.add_argument("--sahte-kodlayici", action="store_true", help="agirlik indirmeden boru hatti testi")
     p.add_argument("--rastgele-kodlayici", action="store_true",
                    help="ablasyon: ayni mimari, V-JEPA on egitimi olmadan")
+    p.add_argument("--coz-son-blok", type=int, default=0,
+                   help="kodlayicinin son N blogunu da egit (ince ayar kolu)")
     p.add_argument("--slab", type=int, default=16)
     p.add_argument("--boyut", type=int, default=256)
     p.add_argument("--batch", type=int, default=2)
@@ -77,7 +79,8 @@ def main():
     cikti.mkdir(parents=True, exist_ok=True)
 
     kodlayici = (SahteKodlayici() if a.sahte_kodlayici
-                 else VJepaKodlayici(a.model_adi, rastgele=a.rastgele_kodlayici))
+                 else VJepaKodlayici(a.model_adi, rastgele=a.rastgele_kodlayici,
+                                     coz_son_blok=a.coz_son_blok))
     model = Model(kodlayici).to(cihaz)
     egitilen = [p_ for p_ in model.parameters() if p_.requires_grad]
     print(f"Egitilen parametre: {sum(p_.numel() for p_ in egitilen)/1e6:.1f} M / "
@@ -91,7 +94,15 @@ def main():
     yk_d = DataLoader(dogrulama, batch_size=a.batch, num_workers=a.isci)
 
     kayip_fn = DiceCEKaybi().to(cihaz)
-    iyilestirici = torch.optim.AdamW(egitilen, lr=a.lr, weight_decay=1e-4)
+    # Kodlayici cozulduyse ona cozucuden 10 kat dusuk ogrenme orani verilir:
+    # on egitilmis temsilleri bozmadan uyarlamak icin standart yaklasim.
+    kodlayici_p = [p_ for p_ in model.kodlayici.parameters() if p_.requires_grad]
+    kodlayici_id = {id(p_) for p_ in kodlayici_p}
+    cozucu_p = [p_ for p_ in egitilen if id(p_) not in kodlayici_id]
+    gruplar = [{"params": cozucu_p, "lr": a.lr}]
+    if kodlayici_p:
+        gruplar.append({"params": kodlayici_p, "lr": a.lr * 0.1})
+    iyilestirici = torch.optim.AdamW(gruplar, lr=a.lr, weight_decay=1e-4)
     zamanlayici = torch.optim.lr_scheduler.CosineAnnealingLR(iyilestirici, T_max=a.epoch)
     olcek = torch.amp.GradScaler(enabled=cihaz.type == "cuda")
 
@@ -128,7 +139,8 @@ def main():
               f"dogrulama {d_kayip:.4f} Dice kc {d_kc:.3f} tumor {d_tumor:.3f} | "
               f"{gecen:.2f} sa", flush=True)
 
-        durum = dict(cozucu=model.cozucu.state_dict(), iyilestirici=iyilestirici.state_dict(),
+        durum = dict(cozucu=model.cozucu.state_dict(),
+                     kodlayici=(model.kodlayici.state_dict() if a.coz_son_blok else None), iyilestirici=iyilestirici.state_dict(),
                      zamanlayici=zamanlayici.state_dict(), epoch=epoch + 1,
                      gecmis=gecmis, en_iyi=en_iyi, ayarlar=vars(a))
         torch.save(durum, ck)
