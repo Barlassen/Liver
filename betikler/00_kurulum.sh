@@ -17,7 +17,7 @@ fi
 source "$KOK/venv/bin/activate"
 
 pip install -q --upgrade pip
-pip install -q nnunetv2 nibabel scipy pandas scikit-image "huggingface_hub[cli]" tqdm
+pip install -q nnunetv2 nibabel scipy pandas scikit-image "huggingface_hub[cli]" tqdm transformers
 
 # --- nnU-Net ortam degiskenleri ---------------------------------------------
 cat > "$KOK/ortam.sh" <<EOF
