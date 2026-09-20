@@ -31,6 +31,16 @@ ORTUSME_ESIGI = 0.1                    # gercek lezyonun en az %10'u ortusurse "
 HASTA_ESIGI_CM3 = 0.1                  # bu hacmin uzerinde tumor -> hasta pozitif
 
 
+def etiket_yukle(yol: Path):
+    """Etiket hacmini ve voksel araligini dondurur. .nii.gz ve .npz destekli."""
+    if yol.suffix == ".npz":
+        d = np.load(yol)
+        return d["etiket"].astype(np.uint8), tuple(float(x) for x in d["aralik"])
+    im = nib.load(yol)
+    return (np.asanyarray(im.dataobj).astype(np.uint8),
+            tuple(np.abs(np.diag(im.affine)[:3]).tolist()))
+
+
 def dice(a: np.ndarray, b: np.ndarray) -> float:
     toplam = a.sum() + b.sum()
     if toplam == 0:
@@ -64,10 +74,10 @@ def boyut_grubu(cap_mm: float) -> str:
 
 def vakayi_degerlendir(args):
     ad, gt_p, tahmin_p = args
-    gt_im = nib.load(gt_p)
-    gt = np.asanyarray(gt_im.dataobj).astype(np.uint8)
-    pr = np.asanyarray(nib.load(tahmin_p).dataobj).astype(np.uint8)
-    aralik = tuple(np.abs(np.diag(gt_im.affine)[:3]).tolist())
+    gt, aralik = etiket_yukle(Path(gt_p))
+    pr, _ = etiket_yukle(Path(tahmin_p))
+    if gt.shape != pr.shape:
+        raise ValueError(f"{ad}: gercek {gt.shape} ile tahmin {pr.shape} ayni degil")
     voksel_cm3 = float(np.prod(aralik)) / 1000.0
 
     gt_kc, pr_kc = gt >= 1, pr >= 1               # organ = karaciger + tumor
@@ -136,10 +146,13 @@ def main():
     cikti.mkdir(parents=True, exist_ok=True)
 
     isler = []
-    for gt_p in sorted(gt_klasor.glob("*.nii.gz")):
-        tahmin_p = tahmin_klasor / gt_p.name
-        if tahmin_p.exists():
-            isler.append((gt_p.name.replace(".nii.gz", ""), str(gt_p), str(tahmin_p)))
+    gt_dosyalar = sorted(list(gt_klasor.glob("*.nii.gz")) + list(gt_klasor.glob("*.npz")))
+    for gt_p in gt_dosyalar:
+        ad = gt_p.name.replace(".nii.gz", "").replace(".npz", "")
+        adaylar = [tahmin_klasor / f"{ad}.nii.gz", tahmin_klasor / f"{ad}.npz"]
+        tahmin_p = next((x for x in adaylar if x.exists()), None)
+        if tahmin_p:
+            isler.append((ad, str(gt_p), str(tahmin_p)))
         else:
             print(f"UYARI: tahmin yok -> {gt_p.name}")
     print(f"{len(isler)} vaka degerlendiriliyor")
