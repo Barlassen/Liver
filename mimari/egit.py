@@ -63,6 +63,8 @@ def main():
                    help="ablasyon: ayni mimari, V-JEPA on egitimi olmadan")
     p.add_argument("--coz-son-blok", type=int, default=0,
                    help="kodlayicinin son N blogunu da egit (ince ayar kolu)")
+    p.add_argument("--katman-sayisi", type=int, default=1,
+                   help="cozucuye verilecek ViT katmani sayisi (1 = yalnizca son katman)")
     p.add_argument("--slab", type=int, default=16)
     p.add_argument("--boyut", type=int, default=256)
     p.add_argument("--batch", type=int, default=2)
@@ -82,7 +84,8 @@ def main():
 
     kodlayici = (SahteKodlayici() if a.sahte_kodlayici
                  else VJepaKodlayici(a.model_adi, rastgele=a.rastgele_kodlayici,
-                                     coz_son_blok=a.coz_son_blok))
+                                     coz_son_blok=a.coz_son_blok,
+                                     katman_sayisi=a.katman_sayisi))
     model = Model(kodlayici).to(cihaz)
     egitilen = [p_ for p_ in model.parameters() if p_.requires_grad]
     print(f"Egitilen parametre: {sum(p_.numel() for p_ in egitilen)/1e6:.1f} M / "

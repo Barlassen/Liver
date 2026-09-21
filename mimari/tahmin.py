@@ -68,13 +68,14 @@ def _doldur_kirp(x: np.ndarray, b: int):
 
 
 @torch.no_grad()
-def vakayi_tahmin_et(model, yol: Path, cihaz, slab=16, boyut=256, sinif=3):
+def vakayi_tahmin_et(model, yol: Path, cihaz, slab=16, boyut=256, sinif=3,
+                     tta: bool = False, ortusme: int = 4):
     hu, _, _ = _yukle(yol)
     H, W, D = hu.shape
     toplam = np.zeros((sinif, D, H, W), dtype=np.float32)
     sayac = np.zeros(D, dtype=np.float32)
 
-    for z0 in slab_bol(D, slab):
+    for z0 in slab_bol(D, slab, ortusme):
         parca = np.moveaxis(hu[..., z0:z0 + slab], -1, 0)          # (d, H, W)
         d = parca.shape[0]
         if d < slab:
@@ -85,7 +86,9 @@ def vakayi_tahmin_et(model, yol: Path, cihaz, slab=16, boyut=256, sinif=3):
 
         with torch.autocast(cihaz.type, dtype=torch.float16, enabled=cihaz.type == "cuda"):
             logit = model(x)
-        logit = logit.float()[0]                                     # (sinif, slab, b, b)
+            if tta:                                                  # sag-sol ayna
+                logit = logit + torch.flip(model(torch.flip(x, dims=[-1])), dims=[-1])
+        logit = logit.float()[0] / (2.0 if tta else 1.0)             # (sinif, slab, b, b)
 
         # Doldurmayi geri al: yalnizca gercek anatomiye denk gelen bolge yazilir.
         toplam[:, z0:z0 + d, h0:h0 + hk, w0:w0 + wk] += logit[:, :d, :hk, :wk].cpu().numpy()
@@ -104,8 +107,11 @@ def main():
     p.add_argument("--sahte-kodlayici", action="store_true")
     p.add_argument("--rastgele-kodlayici", action="store_true")
     p.add_argument("--coz-son-blok", type=int, default=0)
+    p.add_argument("--katman-sayisi", type=int, default=1)
     p.add_argument("--slab", type=int, default=16)
     p.add_argument("--boyut", type=int, default=256)
+    p.add_argument("--tta", action="store_true", help="ayna cevirmeli test-zamani augmentasyon")
+    p.add_argument("--ortusme", type=int, default=4, help="slab ortusmesi (dilim)")
     p.add_argument("--son-isleme", action="store_true",
                    help="karaciger disi tumorleri ve cok kucuk bilesenleri ele")
     p.add_argument("--en-kucuk-cm3", type=float, default=0.05)
@@ -117,7 +123,8 @@ def main():
 
     kodlayici = (SahteKodlayici() if a.sahte_kodlayici
                  else VJepaKodlayici(a.model_adi, rastgele=a.rastgele_kodlayici,
-                                     coz_son_blok=a.coz_son_blok))
+                                     coz_son_blok=a.coz_son_blok,
+                                     katman_sayisi=a.katman_sayisi))
     model = Model(kodlayici).to(cihaz).eval()
     durum = torch.load(a.checkpoint, map_location=cihaz, weights_only=False)
     model.cozucu.load_state_dict(durum["cozucu"])
@@ -127,7 +134,8 @@ def main():
 
     vakalar = sorted(list(Path(a.vakalar).glob("*.npz")) + list(Path(a.vakalar).glob("*_0000.nii.gz")))
     for n, yol in enumerate(vakalar, 1):
-        maske = vakayi_tahmin_et(model, yol, cihaz, a.slab, a.boyut)
+        maske = vakayi_tahmin_et(model, yol, cihaz, a.slab, a.boyut,
+                                 tta=a.tta, ortusme=a.ortusme)
         if a.son_isleme:
             aralik = (np.load(yol)["aralik"] if yol.suffix == ".npz"
                       else np.linalg.norm(nib.load(yol).affine[:3, :3], axis=0))

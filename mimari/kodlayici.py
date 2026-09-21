@@ -22,7 +22,7 @@ class VJepaKodlayici(nn.Module):
     Ikisinin farki "V-JEPA on egitimi ne kazandiriyor" sorusunun cevabidir."""
 
     def __init__(self, model_adi: str = VARSAYILAN_MODEL, dondur: bool = True,
-                 rastgele: bool = False, coz_son_blok: int = 0):
+                 rastgele: bool = False, coz_son_blok: int = 0, katman_sayisi: int = 1):
         super().__init__()
         from transformers import AutoConfig, AutoModel  # torch'suz ortamda import edilebilsin
         if rastgele:
@@ -30,6 +30,7 @@ class VJepaKodlayici(nn.Module):
         else:
             self.govde = AutoModel.from_pretrained(model_adi)
         cfg = self.govde.config
+        self.katman_sayisi = max(1, katman_sayisi)   # kac ViT katmani cozucuye verilecek
         self.yama = getattr(cfg, "patch_size", 16)
         self.tubelet = getattr(cfg, "tubelet_size", 2)
         self.boyut = getattr(cfg, "hidden_size", 1024)
@@ -73,7 +74,7 @@ class VJepaKodlayici(nn.Module):
 
     @property
     def cikti_boyutu(self) -> int:
-        return self.boyut
+        return self.boyut * self.katman_sayisi
 
     def _hazirla(self, x: torch.Tensor) -> torch.Tensor:
         """(B, K, D, H, W) -> (B, D, 3, H, W), normalize edilmis."""
@@ -90,8 +91,17 @@ class VJepaKodlayici(nn.Module):
         v = self._hazirla(x)
         baglam = torch.no_grad() if self.dondu else torch.enable_grad()
         with baglam:
-            cikti = self.govde(pixel_values_videos=v)
-        tokenler = cikti.last_hidden_state              # (B, N, C)
+            cikti = self.govde(pixel_values_videos=v,
+                               output_hidden_states=self.katman_sayisi > 1)
+        if self.katman_sayisi > 1:
+            # Esit arayla secilmis katmanlar (orn. 24 blokta 6/12/18/24) kanal ekseninde
+            # birlestirilir: farkli soyutlama seviyeleri birlikte kullanilir (UNETR fikri).
+            gizli = cikti.hidden_states
+            adim = max(1, (len(gizli) - 1) // self.katman_sayisi)
+            secili = [gizli[i] for i in range(len(gizli) - 1, 0, -adim)][:self.katman_sayisi]
+            tokenler = torch.cat(secili[::-1], dim=-1)  # (B, N, C * katman)
+        else:
+            tokenler = cikti.last_hidden_state          # (B, N, C)
         t, h, w = D // self.tubelet, H // self.yama, W // self.yama
         beklenen = t * h * w
         if tokenler.shape[1] != beklenen:
@@ -99,7 +109,7 @@ class VJepaKodlayici(nn.Module):
                 f"token sayisi {tokenler.shape[1]}, beklenen {beklenen} "
                 f"(D={D}, H={H}, W={W}, tubelet={self.tubelet}, yama={self.yama}). "
                 "Girdi boyutlarini modelin bekledigi degerlere ayarlayin.")
-        return tokenler.transpose(1, 2).reshape(B, self.boyut, t, h, w)
+        return tokenler.transpose(1, 2).reshape(B, self.cikti_boyutu, t, h, w)
 
 
 class SahteKodlayici(nn.Module):
