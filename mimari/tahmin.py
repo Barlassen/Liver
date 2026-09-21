@@ -152,6 +152,10 @@ def main():
     model.cozucu.load_state_dict(durum["cozucu"])
     if durum.get("kodlayici"):
         model.kodlayici.load_state_dict(durum["kodlayici"])
+    elif a.rastgele_kodlayici or a.coz_son_blok:
+        # Rastgele/ince ayarli kodlayicinin agirliklari checkpoint'te yoksa her calismada
+        # FARKLI bir kodlayici olusur ve cozucu anlamsiz cikti uretir. Sessizce devam etme.
+        raise SystemExit("HATA: checkpoint'te kodlayici agirliklari yok; bu kol olculemez.")
     print(f"Checkpoint yuklendi (epoch {durum['epoch']}, en iyi tumor Dice {durum['en_iyi']:.3f})")
 
     vakalar = sorted(list(Path(a.vakalar).glob("*.npz")) + list(Path(a.vakalar).glob("*_0000.nii.gz")))

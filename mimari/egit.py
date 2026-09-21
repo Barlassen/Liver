@@ -59,6 +59,8 @@ def main():
     p.add_argument("--cikti", required=True)
     p.add_argument("--model-adi", default=VARSAYILAN_MODEL)
     p.add_argument("--sahte-kodlayici", action="store_true", help="agirlik indirmeden boru hatti testi")
+    p.add_argument("--kodlayici-tohumu", type=int, default=0,
+                   help="rastgele kodlayicinin baslangic tohumu")
     p.add_argument("--rastgele-kodlayici", action="store_true",
                    help="ablasyon: ayni mimari, V-JEPA on egitimi olmadan")
     p.add_argument("--coz-son-blok", type=int, default=0,
@@ -82,6 +84,9 @@ def main():
     cikti = Path(a.cikti)
     cikti.mkdir(parents=True, exist_ok=True)
 
+    if a.rastgele_kodlayici:
+        # Rastgele kodlayici tekrar uretilebilir olsun; agirliklari ayrica checkpoint'e de yazilir
+        torch.manual_seed(a.kodlayici_tohumu)
     kodlayici = (SahteKodlayici() if a.sahte_kodlayici
                  else VJepaKodlayici(a.model_adi, rastgele=a.rastgele_kodlayici,
                                      coz_son_blok=a.coz_son_blok,
@@ -117,6 +122,8 @@ def main():
     if ck.exists():
         durum = torch.load(ck, map_location=cihaz, weights_only=False)
         model.cozucu.load_state_dict(durum["cozucu"])
+        if durum.get("kodlayici"):
+            model.kodlayici.load_state_dict(durum["kodlayici"])
         iyilestirici.load_state_dict(durum["iyilestirici"])
         zamanlayici.load_state_dict(durum["zamanlayici"])
         baslangic_epoch, gecmis, en_iyi = durum["epoch"], durum["gecmis"], durum["en_iyi"]
@@ -146,7 +153,8 @@ def main():
               f"{gecen:.2f} sa", flush=True)
 
         durum = dict(cozucu=model.cozucu.state_dict(),
-                     kodlayici=(model.kodlayici.state_dict() if a.coz_son_blok else None), iyilestirici=iyilestirici.state_dict(),
+                     kodlayici=(model.kodlayici.state_dict()
+                                    if (a.coz_son_blok or a.rastgele_kodlayici) else None), iyilestirici=iyilestirici.state_dict(),
                      zamanlayici=zamanlayici.state_dict(), epoch=epoch + 1,
                      gecmis=gecmis, en_iyi=en_iyi, ayarlar=vars(a))
         torch.save(durum, ck)
