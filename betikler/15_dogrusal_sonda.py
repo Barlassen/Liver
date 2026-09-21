@@ -31,9 +31,7 @@ from pathlib import Path
 import numpy as np
 import torch
 import torch.nn.functional as F
-from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import average_precision_score, roc_auc_score
-from sklearn.preprocessing import StandardScaler
+from scipy.stats import rankdata
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "mimari"))
 from kodlayici import VJepaKodlayici  # noqa: E402
@@ -151,6 +149,41 @@ def oznitelik_topla(kod, vakalar, varyant, cihaz, slab_adedi):
     return ozn, np.concatenate(oranlar), np.concatenate(kimlik)
 
 
+def auc(y, s):
+    """Mann-Whitney AUC (esitlikler ortalama sirayla)."""
+    r = rankdata(s)
+    n1, n0 = y.sum(), len(y) - y.sum()
+    return float((r[y == 1].sum() - n1 * (n1 + 1) / 2) / (n1 * n0))
+
+
+def ortalama_kesinlik(y, s):
+    o = np.argsort(-s, kind="stable")
+    ys = y[o]
+    kesinlik = np.cumsum(ys) / np.arange(1, len(ys) + 1)
+    return float(kesinlik[ys == 1].mean())
+
+
+def lojistik(X, y, l2=1e-3, cihaz=None):
+    """Sinif-dengeli, L2 duzenlemeli lojistik regresyon (LBFGS, tam yigin, GPU)."""
+    cihaz = cihaz or torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    X = torch.as_tensor(X, dtype=torch.float32, device=cihaz)
+    y = torch.as_tensor(y, dtype=torch.float32, device=cihaz)
+    agirlik = torch.where(y == 1, 0.5 / y.mean(), 0.5 / (1 - y.mean()))
+    w = torch.zeros(X.shape[1], device=cihaz, requires_grad=True)
+    b = torch.zeros(1, device=cihaz, requires_grad=True)
+    opt = torch.optim.LBFGS([w, b], lr=1, max_iter=500, history_size=20,
+                            line_search_fn="strong_wolfe", tolerance_grad=1e-6)
+
+    def kapanis():
+        opt.zero_grad()
+        kayip = (F.binary_cross_entropy_with_logits(X @ w + b, y, weight=agirlik)
+                 + l2 * (w * w).sum())
+        kayip.backward()
+        return kayip
+    opt.step(kapanis)
+    return w.detach(), b.detach()
+
+
 def sonda(Xe, ye_oran, Xd, yd_oran, tohum=0):
     """Egitimde tam pozitif (>=0.5) vs negatif (0) ile oturt; dogrulamada tam ve kismi AUC."""
     rng = np.random.default_rng(tohum)
@@ -158,17 +191,18 @@ def sonda(Xe, ye_oran, Xd, yd_oran, tohum=0):
     if len(neg) > AZAMI_NEGATIF:
         neg = rng.choice(neg, AZAMI_NEGATIF, replace=False)
     idx = np.concatenate([poz, neg])
-    olc = StandardScaler().fit(Xe[idx].astype(np.float32))
-    clf = LogisticRegression(C=0.1, max_iter=2000, class_weight="balanced")
-    clf.fit(olc.transform(Xe[idx].astype(np.float32)), (ye_oran[idx] >= 0.5).astype(int))
-    skor = clf.decision_function(olc.transform(Xd.astype(np.float32)))
+    Xt = Xe[idx].astype(np.float32)
+    ort, std = Xt.mean(0), Xt.std(0) + 1e-6          # standardizasyon YALNIZCA egitimden
+    w, b = lojistik((Xt - ort) / std, (ye_oran[idx] >= 0.5).astype(np.float32))
+    Xv = torch.as_tensor((Xd.astype(np.float32) - ort) / std, device=w.device)
+    skor = (Xv @ w + b).cpu().numpy()
     dneg = yd_oran == 0
     sonuc = {}
     for ad, m in (("tam", yd_oran >= 0.5), ("kismi", (yd_oran > 0) & (yd_oran < 0.5))):
-        yy = np.concatenate([np.ones(m.sum()), np.zeros(dneg.sum())])
+        yy = np.concatenate([np.ones(m.sum()), np.zeros(dneg.sum())]).astype(int)
         ss = np.concatenate([skor[m], skor[dneg]])
-        sonuc[f"auc_{ad}"] = float(roc_auc_score(yy, ss))
-        sonuc[f"ap_{ad}"] = float(average_precision_score(yy, ss))
+        sonuc[f"auc_{ad}"] = auc(yy, ss)
+        sonuc[f"ap_{ad}"] = ortalama_kesinlik(yy, ss)
         sonuc[f"n_{ad}"] = int(m.sum())
     sonuc["n_negatif"] = int(dneg.sum())
     return sonuc
