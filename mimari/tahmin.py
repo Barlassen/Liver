@@ -44,6 +44,23 @@ def son_isleme(maske: np.ndarray, aralik, en_kucuk_cm3: float = 0.05) -> np.ndar
     return maske
 
 
+def esikli_etiket(logit: np.ndarray, esik: float) -> np.ndarray:
+    """(sinif, ...) logit -> etiket, tumor icin argmax yerine esik kullanarak.
+    Organ = arka plan olasiligi < 0.5. Organ icinde kosullu tumor olasiligi
+    p_tumor / (p_tumor + p_karaciger) esigi gecerse tumor, gecmezse karaciger.
+    Model tumoru sistematik eksik boyadigi icin (tahmin/gercek hacim ~0.33) esik
+    DOGRULAMA setinde secilir; test setine bakilmaz."""
+    z = logit - logit.max(axis=0, keepdims=True)
+    p = np.exp(z)
+    p /= p.sum(axis=0, keepdims=True)
+    organ = p[0] < 0.5
+    q = p[2] / np.maximum(p[1] + p[2], 1e-8)
+    et = np.zeros(logit.shape[1:], dtype=np.uint8)
+    et[organ] = 1
+    et[organ & (q > esik)] = 2
+    return et
+
+
 def kaydet(maske: np.ndarray, kaynak: Path, hedef: Path):
     if kaynak.suffix == ".npz":
         d = np.load(kaynak)
@@ -69,7 +86,7 @@ def _doldur_kirp(x: np.ndarray, b: int):
 
 @torch.no_grad()
 def vakayi_tahmin_et(model, yol: Path, cihaz, slab=16, boyut=256, sinif=3,
-                     tta: bool = False, ortusme: int = 4):
+                     tta: bool = False, ortusme: int = 4, esikler=None):
     hu, _, _ = _yukle(yol)
     H, W, D = hu.shape
     toplam = np.zeros((sinif, D, H, W), dtype=np.float32)
@@ -95,6 +112,8 @@ def vakayi_tahmin_et(model, yol: Path, cihaz, slab=16, boyut=256, sinif=3,
         sayac[z0:z0 + d] += 1
 
     toplam /= np.maximum(sayac, 1)[None, :, None, None]
+    if esikler:                                                      # {esik: (H, W, D)}
+        return {e: np.moveaxis(esikli_etiket(toplam, e), 0, -1) for e in esikler}
     return np.moveaxis(toplam.argmax(0).astype(np.uint8), 0, -1)     # (H, W, D)
 
 
@@ -115,6 +134,9 @@ def main():
     p.add_argument("--son-isleme", action="store_true",
                    help="karaciger disi tumorleri ve cok kucuk bilesenleri ele")
     p.add_argument("--en-kucuk-cm3", type=float, default=0.05)
+    p.add_argument("--tumor-esik", type=float, nargs="*", default=None,
+                   help="argmax yerine kosullu tumor esigi; birden fazla deger verilirse "
+                        "her biri <cikti>/esik_<deger> klasorune yazilir (tek gecis)")
     a = p.parse_args()
 
     cihaz = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -133,15 +155,24 @@ def main():
     print(f"Checkpoint yuklendi (epoch {durum['epoch']}, en iyi tumor Dice {durum['en_iyi']:.3f})")
 
     vakalar = sorted(list(Path(a.vakalar).glob("*.npz")) + list(Path(a.vakalar).glob("*_0000.nii.gz")))
+    esikler = a.tumor_esik or None
     for n, yol in enumerate(vakalar, 1):
-        maske = vakayi_tahmin_et(model, yol, cihaz, a.slab, a.boyut,
-                                 tta=a.tta, ortusme=a.ortusme)
-        if a.son_isleme:
-            aralik = (np.load(yol)["aralik"] if yol.suffix == ".npz"
-                      else np.linalg.norm(nib.load(yol).affine[:3, :3], axis=0))
-            maske = son_isleme(maske, aralik, a.en_kucuk_cm3)
+        sonuc = vakayi_tahmin_et(model, yol, cihaz, a.slab, a.boyut,
+                                 tta=a.tta, ortusme=a.ortusme, esikler=esikler)
+        if not esikler:
+            hedefler = {cikti: sonuc}
+        elif len(esikler) == 1:
+            hedefler = {cikti: sonuc[esikler[0]]}
+        else:
+            hedefler = {cikti / f"esik_{e:.2f}": m for e, m in sonuc.items()}
         ad = yol.name.replace("_0000.nii.gz", ".nii.gz").replace(".npz", ".nii.gz")
-        kaydet(maske, yol, cikti / ad)
+        for klasor, maske in hedefler.items():
+            if a.son_isleme:
+                aralik = (np.load(yol)["aralik"] if yol.suffix == ".npz"
+                          else np.linalg.norm(nib.load(yol).affine[:3, :3], axis=0))
+                maske = son_isleme(maske, aralik, a.en_kucuk_cm3)
+            klasor.mkdir(parents=True, exist_ok=True)
+            kaydet(maske, yol, klasor / ad)
         print(f"  {n}/{len(vakalar)} {ad}", flush=True)
     print(f"\nTahminler: {cikti}")
 
