@@ -17,6 +17,7 @@ EK=("$@")                      # modele ozel bayraklar (--coz-son-blok 4, --rast
 CIKTI=${CIKTI_KOK:-~/Liver/cikti}/$KOL
 VERI=${VERI:-~/veri/veri15}          # buyuk veri icin: VERI=~/veri/veri22
 LITS=${LITS:-~/veri/harici_lits15}
+IRCAD=${IRCAD:-~/veri/ircad15}       # ikinci harici test seti (20 hasta)
 
 olc_bir () {                   # $1=checkpoint adi  $2=veri klasoru  $3=etiket -> tumor Dice yazar
   local ck=$1 yol=$2 etiket=$3
@@ -38,7 +39,7 @@ pathlib.Path("$CIKTI/secim.json").write_text(json.dumps(
     {"secilen": "$SECILEN", "dogrulama_tumor_dice": {"en_iyi": $A, "checkpoint": $B}}, indent=2))
 PY
 
-for s in "ic:$VERI/test" "lits:$LITS"; do
+for s in "ic:$VERI/test" "lits:$LITS" "ircad:$IRCAD"; do
   ad=${s%%:*}; yol=${s#*:}
   [ -d "$yol" ] || { echo "  $ad seti yok, atlaniyor"; continue; }
   echo "[$(date +%H:%M)] $KOL: $ad setinde olcum"
