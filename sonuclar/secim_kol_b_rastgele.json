@@ -1,0 +1,7 @@
+{
+  "secilen": "en_iyi",
+  "dogrulama_tumor_dice": {
+    "en_iyi": 0.3216,
+    "checkpoint": 0.2774
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "vaka_sayisi": 387,
+  "tumorlu_vaka": 145,
+  "tumorsuz_vaka": 242,
+  "dice_karaciger_ort": 0.957,
+  "dice_tumor_ort_tumorlu_vakalarda": 0.4106,
+  "hd95_karaciger_ort_mm": 7.23,
+  "hd95_tumor_ort_mm": 50.28,
+  "tumor_hacim_hatasi_ort_yuzde": 146.3,
+  "lezyon_duyarliligi": 0.6288,
+  "hasta_basina_yanlis_pozitif": 1.76,
+  "hasta_duzeyi_duyarlilik": 0.8345,
+  "hasta_duzeyi_ozgulluk": 0.6612,
+  "hasta_duzeyi_auc": 0.8023,
+  "boyuta_gore_duyarlilik": {
+    "1-2cm": {
+      "n": 165,
+      "duyarlilik": 0.6788
+    },
+    "<1cm": {
+      "n": 149,
+      "duyarlilik": 0.4497
+    },
+    ">=2cm": {
+      "n": 117,
+      "duyarlilik": 0.7863
+    }
+  }
+}

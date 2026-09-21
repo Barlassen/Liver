@@ -1,84 +1,68 @@
 # Abstract taslağı
 
-**Durum:** Sayılar eğitim bitince doldurulacak. `[X]` yerleri sonuçlardan gelecek.
-**Format:** Structured abstract (Purpose / Materials and Methods / Results / Conclusion), 250–350 kelime.
+**Durum:** Sayılar dolduruldu (22 Eylül 2026). Kaynak dosyalar: `sonuclar/SONUCLAR.md`, `sonuclar/A_vs_B.md`, `sonuclar/k4_vs_A.md`, `sonuclar/D_vs_A.md`.
+**Format:** Structured abstract (Purpose / Materials and Methods / Results / Conclusion). Kongre ve kelime sınırı henüz teyit edilmedi; aşağıdaki metin ~330 kelime (başlıklar hariç).
+**Açık kalanlar:** (1) nnU-Net referans cümlesi — ekipteki skorlar gelince doldurulacak ya da cümle silinecek. (2) Kongre formatı.
 
 ---
 
-## İngilizce taslak
+## İngilizce metin
 
 ### Purpose
 
-To evaluate whether a **video-pretrained joint-embedding predictive architecture (V-JEPA 2)**,
-used as a frozen encoder, can support **liver tumor detection and segmentation on abdominal CT**,
-and to quantify how much of its performance derives from large-scale self-supervised pretraining.
+To determine whether a video-pretrained joint-embedding predictive architecture (V-JEPA 2), without medical pretraining, transfers to liver tumor segmentation and detection on CT, and to isolate the contribution of its pretraining.
 
 ### Materials and Methods
 
-Retrospective analysis of **[918]** publicly available contrast-varied abdominal CT examinations
-from AbdomenAtlas 3.0. Cases originating from LiTS/MSD Task03 were identified by volume-geometry
-fingerprinting and **excluded from all training and internal testing**; LiTS was reserved as an
-independent external test set with expert annotations (**131** examinations, **118** with tumors,
-**819** lesions). Data were split **at the patient level** into training (**651**), validation
-(**114**) and internal test (**153**, **61** with tumors) cohorts, and included tumor-free
-examinations to permit specificity estimation.
+Public abdominal CT examinations from AbdomenAtlas 3.0 were split at the patient level into training (n = 2,197), validation (n = 387) and internal test (n = 320; 131 with tumors) cohorts. Records originating from LiTS were identified by geometry fingerprinting and excluded (n = 236), so that LiTS (n = 131; 118 with tumors) served as an external test set; corrupted header spacing in 20 LiTS volumes was corrected from the original DICOM source.
 
-Axial slabs of 16 slices (1.5 × 1.5 × 2.0 mm) were encoded by a frozen V-JEPA 2 ViT-L encoder;
-a lightweight three-dimensional decoder with high-resolution skip connections predicted
-voxel-wise labels (background / liver / tumor). Three arms were trained identically:
-(a) **frozen V-JEPA 2**, (b) the **same architecture with a randomly initialized encoder**
-(ablation isolating the contribution of pretraining), and (c) **V-JEPA 2 with the last four
-transformer blocks fine-tuned**. **nnU-Net** served as the reference baseline.
-
-Segmentation was assessed with Dice and 95th-percentile Hausdorff distance; detection with
-lesion-level sensitivity, false positives per examination, size-stratified sensitivity
-(<1 cm, 1–2 cm, ≥2 cm) and patient-level sensitivity, specificity and AUC.
+Axial slabs were encoded by a frozen V-JEPA 2 ViT-L encoder, and a lightweight three-dimensional decoder (4.6 M trainable parameters) predicted liver and tumor. Identically trained arms were: frozen V-JEPA 2; a randomly initialized encoder (ablation); last four blocks fine-tuned; and fused intermediate blocks. Checkpoints were selected on validation data. Arms were compared with paired patient-level bootstrap 95% confidence intervals (CI) and Wilcoxon tests.
 
 ### Results
 
-*(Doldurulacak)*
-
-- Internal test, tumor Dice: frozen **[X]**, fine-tuned **[X]**, random-init **[X]**, nnU-Net **[X]**
-- Internal test, liver Dice: **[X]** / **[X]** / **[X]** / **[X]**
-- Lesion sensitivity **[X]** at **[X]** false positives per examination
-- Size-stratified sensitivity: <1 cm **[X]**, 1–2 cm **[X]**, ≥2 cm **[X]**
-- Patient-level AUC **[X]** (sensitivity **[X]**, specificity **[X]**)
-- External LiTS test: tumor Dice **[X]**, lesion sensitivity **[X]**
+On internal testing, frozen V-JEPA 2 outperformed the random encoder in tumor Dice (0.427 vs 0.337; Δ 0.090, 95% CI 0.048–0.129; P < .001), lesion sensitivity (0.530 vs 0.439; Δ 0.090, 95% CI 0.040–0.140) and false positives per examination (1.40 vs 2.38); liver Dice was 0.961 and patient-level AUC 0.829. Sensitivity was 0.80, 0.65 and 0.27 for lesions ≥ 2 cm, 1–2 cm and < 1 cm. On external testing, pretraining improved tumor Dice (0.475 vs 0.416; Δ 0.060, 95% CI 0.021–0.097) and false positives (1.70 vs 2.49). Fine-tuning did not help (internal Dice 0.406). Linear probing located tumor information in intermediate blocks (average precision 0.82 at block 12 vs 0.44 at the final layer, comparable to random initialization at 0.45); fusing intermediate blocks raised external tumor Dice to 0.506 (Δ 0.031, 95% CI 0.004–0.058) and sensitivity to 0.554 at 1.14 false positives per examination.
 
 ### Conclusion
 
-*(Sonuca göre yazılacak — üç olası yön aşağıda)*
+Video-pretrained JEPA representations transfer to CT without medical pretraining, significantly improving tumor segmentation and reducing false positives in internal and external testing. Tumor-relevant information resides in intermediate layers; sub-centimeter lesions remain the main limitation.
 
 ---
 
-## Sonuca göre üç olası çerçeve
+## Sayıların kaynağı ve kontrol listesi
 
-| Durum | Ana mesaj |
-|---|---|
-| **V-JEPA > rastgele** ve nnU-Net'e yakın | "Doğal videoyla yapılan ön eğitim, hiç tıbbi görüntü görmeden 3B BT'ye anlamlı şekilde aktarılıyor." En güçlü sonuç |
-| **V-JEPA ≈ rastgele** | "Video ön eğitimi bu alana aktarılmıyor; kazanç mimariden geliyor." Negatif ama yayınlanabilir; literatürde bu karşılaştırma yok |
-| **İkisi de nnU-Net'in belirgin altında** | Tespit tarafı öne çıkarılır: "segmentasyon geride kalsa da lezyon tespiti ve hasta düzeyi ayrım klinik olarak anlamlı seviyede" |
+| Cümle | Değer | Kaynak |
+|---|---|---|
+| Eğitim / doğrulama / iç test | 2.197 / 387 / 320 | Dönüştürülüp QC'den geçen `.npz` sayısı (manifest 2.232 / 393 diyor; farkı dönüştürme/QC dışlaması) |
+| İç test tümörlü | 131 hasta, 553 lezyon | Maskeden sayım (metadata 129 diyor) |
+| LiTS tümörlü | 118 hasta, 861 lezyon | Maskeden sayım, 1,5 mm ızgarada 26-komşuluk; orijinal çözünürlükte 819 |
+| Dışlanan LiTS kökenli | 236 kayıt | `veri_seti/lits_kokenli.csv` (131 LiTS hacminin tüm geometri adayları) |
+| A vs B | Dice Δ 0,090 (0,048–0,129) iç; 0,060 (0,021–0,097) LiTS | `sonuclar/A_vs_B.md` |
+| Lezyon duyarlılığı LiTS'te A vs B | 0,518 vs 0,487, **anlamlı değil** | Metinde bu yüzden LiTS için anılmadı |
+| Hasta düzeyi AUC LiTS'te | 0,767 vs 0,762, **anlamlı değil** | LiTS'te yalnız 13 tümörsüz hasta var |
+| Boyuta göre duyarlılık | 0,802 / 0,653 / 0,267 | `SONUCLAR.md`, iç test, Kol A |
+| İnce ayar | 0,406 iç (A'dan farkı anlamlı değil), 0,446 LiTS (A'dan kötü) | `sonuclar/D_vs_A.md` |
+| Doğrusal sonda | AP 0,816 blok 12; 0,441 son çıktı; rastgele son çıktı 0,446 | `sonuclar/dogrusal_sonda.json` (80 eğitim / 40 doğrulama hastası, token düzeyinde) |
+| k4 vs A, LiTS | Dice 0,506 vs 0,475, Δ 0,031 (0,004–0,058) | `sonuclar/k4_vs_A.md` |
 
-Hangi durum çıkarsa çıksın **ablasyon kolu sonucu taşır**: ölçtüğümüz şey "JEPA ön eğitimi 3B BT'de ne kazandırıyor" sorusunun ilk doğrudan cevabı.
+## Metinde bilerek YAZILMAYANLAR
 
----
+- **IRCAD:** Ayrı bir dış test değil, LiTS 28–47'nin kendisi. Bağımsız doğrulama gibi sunulamaz.
+- **"Sızıntı olmadığı kanıtlandı":** Kanıt geometri düzeyinde (boyut + voksel aralığı), piksel/hash düzeyinde değil. Metin "fingerprinting ile tespit edilip dışlandı" diyor, bu kadarını söylüyor.
+- **k4 ana yöntem değil:** Doğrulamada önceden belirlenen +0,02 eşiğini geçemedi (+0,012). Bu yüzden ablasyon eski reçeteyle yapıldı; k4 keşif analizi olarak raporlanıyor.
+- **Tümör hacim hatası:** İç testte ortalama %471, küçük tümörlerin şişirdiği anlamsız bir ortalama.
+- **Eşik ayarı:** Doğrulamada duyarlılığı ~3 puan artırdı; abstract'a girecek kadar önemli değil.
 
-## Yöntem bölümünde mutlaka geçmesi gerekenler
+## Sınırlılıklar (tam metin / sunum için)
 
-1. **Hasta düzeyinde bölünme** — sızıntı önlemi
-2. **LiTS/MSD dışlaması** — AbdomenAtlas bu veri setlerini içeriyor; parmak iziyle tespit edilip çıkarıldı
-3. **Veri seti içi kopyalar** — LiTS taramalarının çoğu AbdomenAtlas'ta iki ayrı BDMAP ID ile bulunuyor (97 çiftin 92'sinde karaciğer hacmi farkı %2'nin altında); her iki kopya da dışlandı
-4. **Tümörsüz vakaların dahil edilmesi** — özgüllük ölçümü için
-5. **Kalite kontrol** — maskeden hesaplanan hacimler metadata ile karşılaştırıldı (ortanca fark %0,4); uyumsuz vakalar işaretlendi
-6. **Oblik affine düzeltmesi** — voksel aralığı affine köşegeninden okunduğunda bazı vakalarda sıfır çıkıyor ve hacimler bozuluyor; sütun normu kullanıldı
+1. **Kol B tek rastgele tohumla eğitildi.** Rastgele başlangıç sonucu etkiliyor (geçersiz sayılan ilk B koşusunun eğitim eğrisi daha yüksekti). 2–3 tohum ideal.
+2. Tümör etiketlerinin bir kısmı AbdomenAtlas'ın yapay zekâ destekli üretimi; LiTS uzman etiketli olduğu için dış test ayrıca değerli.
+3. Eğitimde sol-sağ ayna artırması kullanıldı (karaciğer asimetrisi nedeniyle tartışmalı); bütün kollara eşit uygulandı, karşılaştırmayı bozmaz.
+4. nnU-Net ile doğrudan karşılaştırma bu veri bölünmesinde yapılmadı.
+5. Kontrast fazı vakaların çoğunda kayıtlı değil.
+6. AbdomenAtlas lisansı CC-BY-NC-SA: akademik kullanım serbest, ticari kullanım değil.
 
-Bu maddeler hem yöntemin sağlamlığını gösterir hem de hakemin "veri sızıntısını nasıl ele aldınız" sorusunu baştan cevaplar.
+## İsteğe bağlı nnU-Net cümlesi (ekip skorları gelirse)
 
----
+> For reference, nnU-Net trained on the same split achieved a tumor Dice of [X] on internal testing.
 
-## Sınırlılıklar (Conclusion'da bir cümle)
-
-- Tümör etiketlerinin bir kısmı AbdomenAtlas'ın kendi üretimi; LiTS harici testi bu nedenle ayrıca değerli
-- Tek merkez değil ama tek veri seti ailesi; ileri çalışmada bağımsız hastane verisi gerekir
-- Kontrast fazı vakaların %87'sinde kayıtlı değil, faza göre alt analiz yapılamadı
-- AbdomenAtlas lisansı CC-BY-NC-SA: akademik kullanım serbest, ticari kullanım değil
+Bu cümle ancak nnU-Net **aynı** 2.197 / 387 / 320 bölünmesiyle eğitilip aynı test setinde ölçüldüyse eklenebilir. Farklı bölünmedeki bir skor yan yana konamaz.
