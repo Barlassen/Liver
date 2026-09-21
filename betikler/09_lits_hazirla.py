@@ -72,12 +72,15 @@ def voksel_araligi(affine) -> np.ndarray:
 
 
 def vakayi_hazirla(args):
-    ad, ct_p, et_p, cikti, bicim, hedef_aralik, kirp = args
+    ad, ct_p, et_p, cikti, bicim, hedef_aralik, kirp, gercek = args
     try:
         ct_im = nib.load(ct_p)
         ct = np.asanyarray(ct_im.dataobj).astype(np.float32)
         et = np.asanyarray(nib.load(et_p).dataobj).astype(np.uint8)
         aralik = voksel_araligi(ct_im.affine).astype(np.float32)
+        if gercek is not None:
+            # Baslik sahte (LiTS 28-47: 1x1x1 mm); gercek deger IRCAD DICOM'undan
+            aralik = np.asarray(gercek, dtype=np.float32)
         if not np.all(aralik > 0):
             raise ValueError(f"gecersiz voksel araligi: {aralik}")
 
@@ -130,6 +133,11 @@ def main():
     p.add_argument("--aralik", type=float, nargs=3, default=[2.0, 2.0, 3.0])
     p.add_argument("--kirpma", action="store_true", default=True)
     p.add_argument("--isler", type=int, default=os.cpu_count() or 8)
+    p.add_argument("--gercek-aralik", default=None,
+                   help="lits_no,sx,sy,sz CSV'si; bu vakalarda basliktaki voksel araligi yerine kullanilir "
+                        "(LiTS 28-47 basliklari sahte 1x1x1 mm)")
+    p.add_argument("--sadece", type=int, nargs="*", default=None,
+                   help="yalnizca bu LiTS numaralarini isle (rapor ayri dosyaya yazilir)")
     a = p.parse_args()
 
     cikti = Path(a.cikti)
@@ -140,12 +148,20 @@ def main():
     arsivi_ac(tar_yolu, calisma)
 
     goruntuler = sorted((calisma / "imagesTr").glob("liver_*.nii.gz"))
+    gercek = {}
+    if a.gercek_aralik:
+        g = pd.read_csv(a.gercek_aralik)
+        gercek = {int(r.lits_no): (r.sx, r.sy, r.sz) for r in g.itertuples()}
     isler = []
     for ct_p in goruntuler:
         et_p = calisma / "labelsTr" / ct_p.name
         if et_p.exists():
-            ad = "LITS_" + ct_p.stem.replace(".nii", "").split("_")[-1].zfill(4)
-            isler.append((ad, str(ct_p), str(et_p), str(cikti), a.format, a.aralik, a.kirpma))
+            no = int(ct_p.stem.replace(".nii", "").split("_")[-1])
+            if a.sadece is not None and no not in a.sadece:
+                continue
+            ad = "LITS_" + str(no).zfill(4)
+            isler.append((ad, str(ct_p), str(et_p), str(cikti), a.format, a.aralik, a.kirpma,
+                          gercek.get(no)))
     print(f"{len(isler)} LiTS vakasi hazirlaniyor -> {cikti} ({a.format})")
 
     sonuclar = []
@@ -158,7 +174,8 @@ def main():
 
     rapor = pd.DataFrame(sonuclar).sort_values("vaka")
     cikti.mkdir(parents=True, exist_ok=True)
-    rapor.to_csv(cikti / "lits_harici.csv", index=False)
+    rapor_adi = "lits_harici.csv" if a.sadece is None else "lits_harici_duzeltme.csv"
+    rapor.to_csv(cikti / rapor_adi, index=False)
     basarili = rapor[rapor.hata == ""]
     print("\n--- Ozet ---")
     print(f"hazirlanan vaka : {len(basarili)}")
@@ -167,7 +184,7 @@ def main():
     print(f"ortanca karaciger hacmi: {basarili.karaciger_cm3.median():.0f} cm3")
     if (rapor.hata != "").any():
         print(rapor[rapor.hata != ""][["vaka", "hata"]].head().to_string(index=False))
-    print(f"\nRapor: {cikti/'lits_harici.csv'}")
+    print(f"\nRapor: {cikti/rapor_adi}")
 
 
 if __name__ == "__main__":

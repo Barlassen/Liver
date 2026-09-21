@@ -1,0 +1,21 @@
+lits_no,ircad_no,sx,sy,sz,kaynak
+28,1,0.57,0.57,1.6,3Dircadb1 DICOM PixelSpacing + ImagePositionPatient
+29,2,0.782,0.782,1.6,3Dircadb1 DICOM PixelSpacing + ImagePositionPatient
+30,3,0.625,0.625,1.25,3Dircadb1 DICOM PixelSpacing + ImagePositionPatient
+31,4,0.742,0.742,2.0,3Dircadb1 DICOM PixelSpacing + ImagePositionPatient
+32,5,0.782,0.782,1.6,3Dircadb1 DICOM PixelSpacing + ImagePositionPatient
+33,6,0.782,0.782,1.6,3Dircadb1 DICOM PixelSpacing + ImagePositionPatient
+34,7,0.782,0.782,1.6,3Dircadb1 DICOM PixelSpacing + ImagePositionPatient
+35,8,0.561,0.561,1.6,3Dircadb1 DICOM PixelSpacing + ImagePositionPatient
+36,9,0.873,0.873,2.0,3Dircadb1 DICOM PixelSpacing + ImagePositionPatient
+37,10,0.736,0.736,1.6,3Dircadb1 DICOM PixelSpacing + ImagePositionPatient
+38,11,0.72,0.72,1.6,3Dircadb1 DICOM PixelSpacing + ImagePositionPatient
+39,12,0.68,0.68,1.0,3Dircadb1 DICOM PixelSpacing + ImagePositionPatient
+40,13,0.671,0.671,1.6,3Dircadb1 DICOM PixelSpacing + ImagePositionPatient
+41,14,0.72,0.72,1.6,3Dircadb1 DICOM PixelSpacing + ImagePositionPatient
+42,15,0.782,0.782,1.6,3Dircadb1 DICOM PixelSpacing + ImagePositionPatient
+43,16,0.698,0.698,1.6,3Dircadb1 DICOM PixelSpacing + ImagePositionPatient
+44,17,0.743,0.743,1.6,3Dircadb1 DICOM PixelSpacing + ImagePositionPatient
+45,18,0.742,0.742,2.5,3Dircadb1 DICOM PixelSpacing + ImagePositionPatient
+46,19,0.703,0.703,4.0,3Dircadb1 DICOM PixelSpacing + ImagePositionPatient
+47,20,0.809,0.809,2.0,3Dircadb1 DICOM PixelSpacing + ImagePositionPatient
