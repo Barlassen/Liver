@@ -2,6 +2,7 @@
 
 **Durum:** Sayılar dolduruldu (22 Eylül 2026). Kaynak dosyalar: `sonuclar/SONUCLAR.md`, `sonuclar/A_vs_B.md`, `sonuclar/k4_vs_A.md`, `sonuclar/D_vs_A.md`.
 **Format:** Structured abstract (Purpose / Materials and Methods / Results / Conclusion). Kongre ve kelime sınırı henüz teyit edilmedi; aşağıdaki metin ~330 kelime (başlıklar hariç).
+**Sürüm:** YEDEK — yön düzeltmesiz hat. RAS hattı (`betikler/19_ras_hatti.sh`) zamanında biterse sayılar onunla değiştirilecek (önceden sabitlenen kural: skor artsa da düşse de RAS sonuçları raporlanır).
 **Açık kalanlar:** (1) nnU-Net referans cümlesi — ekipteki skorlar gelince doldurulacak ya da cümle silinecek. (2) Kongre formatı.
 
 ---
@@ -20,7 +21,7 @@ Axial slabs were encoded by a frozen V-JEPA 2 ViT-L encoder, and a lightweight t
 
 ### Results
 
-On internal testing, frozen V-JEPA 2 outperformed the random encoder in tumor Dice (0.427 vs 0.337; Δ 0.090, 95% CI 0.048–0.129; P < .001), lesion sensitivity (0.530 vs 0.439; Δ 0.090, 95% CI 0.040–0.140) and false positives per examination (1.40 vs 2.38); liver Dice was 0.961 and patient-level AUC 0.829. Sensitivity was 0.80, 0.65 and 0.27 for lesions ≥ 2 cm, 1–2 cm and < 1 cm. On external testing, pretraining improved tumor Dice (0.475 vs 0.416; Δ 0.060, 95% CI 0.021–0.097) and false positives (1.70 vs 2.49). Fine-tuning did not help (internal Dice 0.406). Linear probing located tumor information in intermediate blocks (average precision 0.82 at block 12 vs 0.44 at the final layer, comparable to random initialization at 0.45); fusing intermediate blocks raised external tumor Dice to 0.506 (Δ 0.031, 95% CI 0.004–0.058) and sensitivity to 0.554 at 1.14 false positives per examination.
+On internal testing, frozen V-JEPA 2 outperformed the random encoder in per-case tumor Dice (0.427 vs 0.337; Δ 0.090, 95% CI 0.048–0.129; P < .001; global Dice 0.578 vs 0.476), lesion sensitivity (0.530 vs 0.439; Δ 0.090, 95% CI 0.040–0.140) and false positives per examination (1.40 vs 2.38); liver Dice was 0.961 and patient-level AUC 0.829. Sensitivity was 0.80, 0.65 and 0.27 for lesions ≥ 2 cm, 1–2 cm and < 1 cm. On external testing, pretraining improved per-case tumor Dice (0.475 vs 0.416; Δ 0.060, 95% CI 0.021–0.097; global 0.661 vs 0.583) and false positives (1.70 vs 2.49). Fine-tuning did not help (internal Dice 0.406). Linear probing located tumor information in intermediate blocks (average precision 0.82 at block 12 vs 0.44 at the final layer, comparable to random initialization at 0.45); fusing intermediate blocks raised external tumor Dice to 0.506 (Δ 0.031, 95% CI 0.004–0.058) (global 0.674).
 
 ### Conclusion
 
@@ -42,6 +43,7 @@ Video-pretrained JEPA representations transfer to CT without medical pretraining
 | Boyuta göre duyarlılık | 0,802 / 0,653 / 0,267 | `SONUCLAR.md`, iç test, Kol A |
 | İnce ayar | 0,406 iç (A'dan farkı anlamlı değil), 0,446 LiTS (A'dan kötü) | `sonuclar/D_vs_A.md` |
 | Doğrusal sonda | AP 0,816 blok 12; 0,441 son çıktı; rastgele son çıktı 0,446 | `sonuclar/dogrusal_sonda.json` (80 eğitim / 40 doğrulama hastası, token düzeyinde) |
+| Global Dice (tüm vokseller) | A 0,578 / B 0,476 iç; A 0,661 / B 0,583 / k4 0,674 LiTS | vaka_bazli.csv'den: Σ kesişim / Σ hacim. Hasta başına Dice ile BİRLİKTE, etiketli raporlanır |
 | k4 vs A, LiTS | Dice 0,506 vs 0,475, Δ 0,031 (0,004–0,058) | `sonuclar/k4_vs_A.md` |
 
 ## Metinde bilerek YAZILMAYANLAR
@@ -59,7 +61,8 @@ Video-pretrained JEPA representations transfer to CT without medical pretraining
 3. Eğitimde sol-sağ ayna artırması kullanıldı (karaciğer asimetrisi nedeniyle tartışmalı); bütün kollara eşit uygulandı, karşılaştırmayı bozmaz.
 4. nnU-Net ile doğrudan karşılaştırma bu veri bölünmesinde yapılmadı.
 5. Kontrast fazı vakaların çoğunda kayıtlı değil.
-6. AbdomenAtlas lisansı CC-BY-NC-SA: akademik kullanım serbest, ticari kullanım değil.
+6. **Görüntü yönü (yedek sürüm için):** AbdomenAtlas vakaları farklı yönlerde (RAS %45, LAS %25, LPS %20, IPL %8); bu sürümde kanonik yöne çevrilmedi. Tümü kollara eşit etki eder. RAS hattı bitince bu madde kalkar.
+7. AbdomenAtlas lisansı CC-BY-NC-SA: akademik kullanım serbest, ticari kullanım değil.
 
 ## İsteğe bağlı nnU-Net cümlesi (ekip skorları gelirse)
 
